@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <string>
-#include <afxsock.h>
+//#include <afxsock.h>
 #include <mysql.h>
 using namespace std;
 class VspdCToMySQL 

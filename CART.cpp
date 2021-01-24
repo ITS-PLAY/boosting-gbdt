@@ -1,39 +1,50 @@
 #include "CART.h"
 
-template <typename T>
-void CART_MODEL<T>::load_Data_From_SQL() {
-	VspdCToMySQL* vspdctomysql = new VspdCToMySQL;
-	MYSQL mysql;
-	mysql_init(&mysql);
-	const char* host = "localhost";
-	const char* user = "root";
-	const char* pwd = "123456";
-	const char* db = "School";
-	const char* charset = "utf-8";
-	char* Msg = "";
+void CART_MODEL::load_Data_From_SQL() {
+	unique_ptr<VspdCToMySQL> vspdctomysql = make_unique<VspdCToMySQL>();
 
+	/*
+	char* host = (char*)"localhost";
+	char* port = (char*)"3306";
+	char* db = (char*)"shanghai_dw";
+	char* user = (char*)"root";
+	char* passwd = (char*)"123456";
+	char* charset = (char*)"utf-8";
+	char* Msg = (char*)"";
 
-	if (vspdctomysql->ConnMySQL(host, 3306, db, user,pwd, charset, Msg)){
-		printf("mysql connected failed, ");
+	if (vspdctomysql->ConnMySQL(host, port, db, user, passwd, charset, Msg) == 1){
+		printf("mysql connected failed");
 	}else{
 		printf("mysql connected success");
 	}
+	*/
 
-	mysql_close(&mysql);
+	Data_Info.emplace("Hour", vector<string>{"9","9","9","9","9"});     //2020年9月1号，9点0分的数据示例
+	Data_Info.emplace("Minute", vector<string>{ "0","0","0","0","0" });
+	Data_Info.emplace("Week", vector<string>{ "2","2","2","2","2" });
+	Data_Info.emplace("Holiday", vector<string>{"0","0", "0", "0", "0" });
+	Data_Info.emplace("Pre_Volume", vector<string>{ "15","15", "15", "30", "30" });           //前一时刻的流量数据
+	Data_Info.emplace("Pre_Week_Volume", vector<string>{ "20","20", "20", "20", "20" });
+	Data_Info.emplace("Pre_Capacity", vector<string>{ "1000","1000", "1000", "1000", "1000" });
+	Data_Info.emplace("Pre_InVolume", vector<string>{ "100","100", "100", "100", "100" });
+	Data_Info.emplace("Upstream_Volume", vector<string>{ "100","100", "100", "100", "100" });
+	Data_Info.emplace("Weather", vector<string>{ "1","1", "1", "1", "1" });              //1表示天气晴朗
+	Data_Info.emplace("Long_Ratio", vector<string>{ "1.0","1.0", "1.0", "1.0", "1.0" });
+	Data_Info.emplace("Volume", vector<string>{ "18","18", "19", "29", "29" });                 //当前流量的输出值
+
 	return;
 }
 
-template <typename T>
-void CART_MODEL<T>::load_Data_From_Tree(unordered_map<string, vector<string>> mData_Info) {
+void CART_MODEL::load_Data_From_Tree(unordered_map<string, vector<string>> mData_Info) {
 
 	return;
 }
 
-template <typename T>
-void CART_MODEL<T>::choose_Feature(unordered_map<string, vector<string>> mData_Info, unordered_map<string, vector<string>>& data_Info_Left, unordered_map<string, vector<string>>& data_Info_Right,int& min_Feature_Index, string& min_Feature_Split) {
+void CART_MODEL::choose_Feature(unordered_map<string, vector<string>> mData_Info, unordered_map<string, vector<string>>& data_Info_Left, unordered_map<string, vector<string>>& data_Info_Right,int& min_Feature_Index, string& min_Feature_Split) {
 	double left_Error = 0.0, right_Error = 0.0;
 	unordered_map<string, vector<string>> data_Temp_Left;
 	unordered_map<string, vector<string>> data_Temp_Right;
+	min_Error = FLT_MAX;
 	//选择最优的切分变量i和切分点s
 	int n = data_Info_Fields.size() - 1;
 	for (int i = 2; i < data_Info_Fields.size(); i++) {                             //遍历切分变量
@@ -46,19 +57,15 @@ void CART_MODEL<T>::choose_Feature(unordered_map<string, vector<string>> mData_I
 			double min_Value = *min_element(field_Float_Value.begin(), field_Float_Value.end());
 			double s_begin = volume_Window * ceil(min_Value / volume_Window), s_end = volume_Window * floor(max_Value / volume_Window);
 			for (double s = s_begin; s <= s_end; s = s + volume_Window) {         //流量的切分点间隔为volume_Window
-				category_Fields[data_Info_Fields[i]].emplace(to_string(s));
+				category_Fields[data_Info_Fields[i]].emplace_back(to_string(s));
 			}
 		}
-
+		//TODO: 当变量的数据特征只有一个时，为无效的特征，则跳过该变量
 		for (int s = 0; s < category_Fields[data_Info_Fields[i]].size(); s++) {       //遍历切分点 
-			if (data_Info_Types[i] == "Linear") {
-				data_Split(mData_Info, i, stof(category_Fields[data_Info_Fields[i]][s]), data_Temp_Left, data_Temp_Right);
-				category_Fields.erase([data_Info_Fields[i]]);
-			}
-			else
-				data_Split(mData_Info, i, category_Fields[data_Info_Fields[i]][s], data_Temp_Left, data_Temp_Right);
+			data_Split(mData_Info, i, category_Fields[data_Info_Fields[i]][s], data_Temp_Left, data_Temp_Right);
+
 			left_Error = (data_Temp_Left.size()) ? caculate_Square(data_Temp_Left) : 0.0;
-			right_Error = (data_Temp_Left.size()) ? caculate_Square(data_Temp_Right) : 0.0;
+			right_Error = (data_Temp_Right.size()) ? caculate_Square(data_Temp_Right) : 0.0;
 			if ((left_Error + right_Error) < min_Error) {
 				min_Error = left_Error + right_Error;
 				data_Info_Left.swap(data_Temp_Left);
@@ -72,68 +79,66 @@ void CART_MODEL<T>::choose_Feature(unordered_map<string, vector<string>> mData_I
 	return;
 }
 
-template <typename T>
-void CART_MODEL<T>::data_Split(unordered_map<string, vector<string>> mData_Info, int field_Index, T field_Value, unordered_map<string, vector<string>>& data_Temp_Left, unordered_map<string, vector<string>>& data_Temp_Right) {
-
+void CART_MODEL::data_Split(unordered_map<string, vector<string>> mData_Info, int field_Index, string field_Value, unordered_map<string, vector<string>>& data_Temp_Left, unordered_map<string, vector<string>>& data_Temp_Right) {
+	bool temp = true;
+	data_Temp_Left.clear();
+	data_Temp_Right.clear();
 	for (int i = 0; i < mData_Info[data_Info_Fields[field_Index]].size(); i++) {
-		if (mData_Info[data_Info_Fields[field_Index]][i] < field_Value) {
-			for (int j = 0; j < data_Info_Fields.size(); j++) {
+		if (data_Info_Types[field_Index] == "Linear") {
+			temp = stof(mData_Info[data_Info_Fields[field_Index]][i]) < stof(field_Value);
+		}else
+			temp = mData_Info[data_Info_Fields[field_Index]][i] < field_Value;
+
+		for (int j = 0; j < data_Info_Fields.size(); j++) {
+			if (temp) {
 				data_Temp_Left[data_Info_Fields[j]].emplace_back(mData_Info[data_Info_Fields[j]][i]);       //将同行的数据存入左边集合
+			}else {
+				data_Temp_Right[data_Info_Fields[j]].emplace_back(mData_Info[data_Info_Fields[j]][i]);       //将同行的数据存入右边集合
 			}
-		}
-		else {
-			for (int j = 0; j < data_Info_Fields.size(); j++) {
-				data_Temp_Right[data_Info_Fields[j]].emplace_back(mData_Info[data_Info_Fields[j]][i]);       //将同行的数据存入左边集合
-			}
-		}
+		}		
 	}
 	return;
 }
 
-template <typename T>
-double CART_MODEL<T>::caculate_Square(unordered_map<string, vector<string>> data_Temp) {      	               //计算方差
-double sum = 0.0;
-int n = data_Info_Fields.size() - 1;
-vector<string> temp = data_Temp[data_Info_Fields[n]];
-vector<double> temp_Float;
-for (int i = 0; i < temp.size(); i++) {
-	temp_Float.emplace_back(stof(temp[i]));
-	sum += pow(temp_Float[i], 2.0);
-}
-double ave = accumulate(temp_Float.begin(), temp_Float.end(), 0.0) / temp_Float.size();
-return sum - temp_Float.size() * pow(ave, 2.0);
+double CART_MODEL::caculate_Square(unordered_map<string, vector<string>> data_Temp) {      	               //计算方差
+	double sum = 0.0;
+	int n = data_Info_Fields.size() - 1;
+	vector<string> temp = data_Temp[data_Info_Fields[n]];
+	vector<double> temp_Float;
+	for (int i = 0; i < temp.size(); i++) {
+		temp_Float.emplace_back(stof(temp[i]));
+		sum += pow(temp_Float[i], 2.0);
+	}
+	double ave = accumulate(temp_Float.begin(), temp_Float.end(), 0.0) / temp_Float.size();
+	return sum - temp_Float.size() * pow(ave, 2.0);
 }
 
-template<typename T>
-Tree_Node* CART_MODEL<T>::build_Tree(Tree_Node* head, unordered_map<string, vector<string>> mData_Info) {
-	//创建树
+Tree_Node* CART_MODEL::build_Tree(Tree_Node* parent, Tree_Node* head, unordered_map<string, vector<string>> mData_Info) {         	//创建树
 	if (mData_Info.size() == 0)
 		return nullptr;
 	int index = 0;
 	string value = "";
 	unordered_map<string, vector<string>> data_Info_Left, data_Info_Right;
 	choose_Feature(mData_Info, data_Info_Left, data_Info_Right, index, value);
-	Tree_Node* root = head;                                                      //保留双亲节点
-	head = new Tree_Node(index, value);
+                                                  
+	if (head == nullptr)
+	    head = new Tree_Node(index, value);
 	head->min_Square = caculate_Square(mData_Info);
-	head->parent_Node = root;
-	head->node_Level = root->node_Level + 1;                                     //计算节点的深度
-
+	head->parent_Node = parent;                                                    //保留双亲节点
+	head->node_Level = parent ? (parent->node_Level + 1) : 1;                      //计算节点的深度
 	tree_Level[head->node_Level].emplace_back(head);                             //同一层的节点放在vector中
-	if (data_Info_Left.size() < leaf_Node_Min_Size || data_Info_Right.size() < leaf_Node_Min_Size) {
+
+	if (data_Info_Left["Volume"].size() < leaf_Node_Min_Size || data_Info_Right["Volume"].size() < leaf_Node_Min_Size) {
 		head = build_Leaf_Node(head, mData_Info);
 	}
-
-	if (data_Info_Left.size() >= leaf_Node_Min_Size && data_Info_Right.size() >= leaf_Node_Min_Size) {
-		head->left_Tree = build_Tree(head->left_Tree, data_Info_Left);
-		head->right_Tree = build_Tree(head->right_Tree, data_Info_Right);
+	if (data_Info_Left["Volume"].size() >= leaf_Node_Min_Size && data_Info_Right["Volume"].size() >= leaf_Node_Min_Size) {
+		head->left_Tree = build_Tree(head,head->left_Tree, data_Info_Left);
+		head->right_Tree = build_Tree(head,head->right_Tree, data_Info_Right);
 	}
-
 	return head;
 }
 
-template<typename T>
-Tree_Node* CART_MODEL<T>::build_Leaf_Node(Tree_Node* head, unordered_map<string, vector<string>> mData_Info) {
+Tree_Node* CART_MODEL::build_Leaf_Node(Tree_Node* head, unordered_map<string, vector<string>> mData_Info) {
 	//创建叶节点
 	int n = data_Info_Fields.size() - 1;
 	vector<string> temp = mData_Info[data_Info_Fields[n]];
@@ -141,12 +146,11 @@ Tree_Node* CART_MODEL<T>::build_Leaf_Node(Tree_Node* head, unordered_map<string,
 	for (int i = 0; i < temp.size(); i++) {
 		temp_Float.emplace_back(stof(temp[i]));
 	}
-	head->node_Value = to_string(accumulate(temp_Float.begin(), temp_Float.end(), 0.0) / temp_Float.size());
+	head->node_Value = to_string(accumulate(temp_Float.begin(), temp_Float.end(), 0.0) / temp_Float.size());     //计算叶节点集合的平均值
 	return head;
 }
 
-template<typename T>
-void CART_MODEL<T>::post_Pruning() {
+void CART_MODEL::post_Pruning() {
 	vector<int> tree_Level_Sort(1);
 	for (auto it = tree_Level.begin(); it != tree_Level.end(); it++) {
 		tree_Level_Sort.emplace_back(it->first);
@@ -177,8 +181,7 @@ void CART_MODEL<T>::post_Pruning() {
 	return;
 }
 
-template <typename T>
-void CART_MODEL<T>::sub_Tree_Square(Tree_Node* head, double& square_Sum, int& leaf_Num) {
+void CART_MODEL::sub_Tree_Square(Tree_Node* head, double& square_Sum, int& leaf_Num) {
 	if (head->left_Tree == nullptr && head->right_Tree == nullptr) {
 		square_Sum += head->min_Square;
 		leaf_Num++;
@@ -189,8 +192,7 @@ void CART_MODEL<T>::sub_Tree_Square(Tree_Node* head, double& square_Sum, int& le
 	return;
 }
 
-template<typename T>
-void CART_MODEL<T>::predict(unordered_map<string, vector<string>> mData_Info, Tree_Node* optimal) {  //只有一行数
+void CART_MODEL::predict(unordered_map<string, vector<string>> mData_Info, Tree_Node* optimal) {  //只有一行数
 
 	if (data_Info_Types[optimal->node_Index] == "Category") {
 		if (mData_Info[data_Info_Fields[optimal->node_Index]][0] < optimal->node_Value) {           //数值小于节点值，从左子树遍历
@@ -221,7 +223,10 @@ void CART_MODEL<T>::predict(unordered_map<string, vector<string>> mData_Info, Tr
 	return;
 }
 
-int main() {
+int main(){
+
+	CART_MODEL cart_test;
+	cart_test.post_Pruning();
 
 	return 0;
 }
