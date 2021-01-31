@@ -24,6 +24,7 @@
     <ProjectGuid>{5622b74a-7f18-4528-99ff-f4d1bbff60c5}</ProjectGuid>
     <RootNamespace>CART</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>GBDT</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -143,11 +144,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="CART.cpp" />
+    <ClCompile Include="GBDT.cpp" />
     <ClCompile Include="VspdCTOMySQL.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CART.h" />
+    <ClInclude Include="GBDT.h" />
     <ClInclude Include="VspdCTOMySQL.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

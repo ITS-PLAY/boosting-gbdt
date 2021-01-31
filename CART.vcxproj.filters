@@ -15,18 +15,18 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CART.cpp">
+    <ClCompile Include="VspdCTOMySQL.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="VspdCTOMySQL.cpp">
+    <ClCompile Include="GBDT.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CART.h">
+    <ClInclude Include="VspdCTOMySQL.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="VspdCTOMySQL.h">
+    <ClInclude Include="GBDT.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
