@@ -151,7 +151,7 @@ Tree_Node* CART_MODEL::build_Leaf_Node(Tree_Node* head, unordered_map<string, ve
 }
 
 void CART_MODEL::post_Pruning() {
-	vector<int> tree_Level_Sort(1);
+	vector<int> tree_Level_Sort;
 	for (auto it = tree_Level.begin(); it != tree_Level.end(); it++) {
 		tree_Level_Sort.emplace_back(it->first);
 	}
@@ -160,22 +160,21 @@ void CART_MODEL::post_Pruning() {
 	double alpha_Temp = 0.0;
 	for (int i = 1; i < tree_Level_Sort.size(); i++) {       //从底向上，对决策树进行剪枝
 		for (int j = 0; j < tree_Level[tree_Level_Sort[i]].size(); j++) {
-
+			if (!tree_Level[tree_Level_Sort[i]][j]->parent_Node)
+				break;
 			double sub_Tree_Square_Sum = 0.0;
 			int leaf_Num = 0;
 			sub_Tree_Square(tree_Level[tree_Level_Sort[i]][j], sub_Tree_Square_Sum, leaf_Num);                    //计算以中间节点为跟节点的子树均方误差和叶子节点数
 			alpha_Temp = (tree_Level[tree_Level_Sort[i]][j]->min_Square - sub_Tree_Square_Sum) / (leaf_Num - 1);
 
-			Tree_Node* temp = tree_Level[tree_Level_Sort[i]][j];
-			tree_Level[tree_Level_Sort[i]][j]->left_Tree = nullptr;
-			tree_Level[tree_Level_Sort[i]][j]->right_Tree = nullptr;
-			optimal_Sub_Trees_Alpha[alpha_Temp] = head;                                                             //剪枝完成的子树
-			if (tree_Level[tree_Level_Sort[i]][j] == tree_Level[tree_Level_Sort[i]][j]->parent_Node->left_Tree) {   //回溯到原来的状态
-				tree_Level[tree_Level_Sort[i]][j]->parent_Node->left_Tree = temp;
-			}
-			else {
-				tree_Level[tree_Level_Sort[i]][j]->parent_Node->right_Tree = temp;
-			}
+			unordered_map<int, vector<Tree_Node*>> tree_Level_Temp;              //建立子树，把整个树复制给子树
+			Tree_Node* sub_Tree = nullptr;                               
+			sub_Tree = copy_Tree(this->head, nullptr, tree_Level_Temp);
+			
+			tree_Level_Temp[tree_Level_Sort[i]][j]->left_Tree = nullptr;
+			tree_Level_Temp[tree_Level_Sort[i]][j]->right_Tree = nullptr;
+			optimal_Sub_Trees_Alpha[alpha_Temp] = sub_Tree;                                                             //剪枝完成的子树
+
 		}
 	}
 	return;
@@ -190,6 +189,27 @@ void CART_MODEL::sub_Tree_Square(Tree_Node* head, double& square_Sum, int& leaf_
 	sub_Tree_Square(head->left_Tree, square_Sum, leaf_Num);
 	sub_Tree_Square(head->right_Tree, square_Sum, leaf_Num);
 	return;
+}
+
+void CART_MODEL::copy_Node(Tree_Node* sub_Tree_Node, Tree_Node* head_Node) {
+	sub_Tree_Node->min_Square = head_Node->min_Square;
+	sub_Tree_Node->node_Index = head_Node->node_Index;
+	sub_Tree_Node->node_Level = head_Node->node_Level;
+	sub_Tree_Node->node_Value = head_Node->node_Value;
+	return;
+}
+
+Tree_Node* CART_MODEL::copy_Tree(Tree_Node* head, Tree_Node* sub_Tree_Parent, unordered_map<int, vector<Tree_Node*>>& tree_Level_Temp) {
+	if (!head)
+		return nullptr;
+	Tree_Node* sub_Tree = new Tree_Node();
+	copy_Node(sub_Tree,head);
+	sub_Tree->parent_Node = sub_Tree_Parent;
+	tree_Level_Temp[sub_Tree->node_Level].emplace_back(sub_Tree);
+
+	sub_Tree->left_Tree = copy_Tree(head->left_Tree, sub_Tree, tree_Level_Temp);
+	sub_Tree->right_Tree = copy_Tree(head->right_Tree, sub_Tree, tree_Level_Temp);
+	return sub_Tree;
 }
 
 void CART_MODEL::predict(unordered_map<string, vector<string>> mData_Info, Tree_Node* optimal) {  //只有一行数
@@ -225,8 +245,22 @@ void CART_MODEL::predict(unordered_map<string, vector<string>> mData_Info, Tree_
 
 int main(){
 
+	unordered_map<string, vector<string>> Data_Info;
+	Data_Info.emplace("Hour", vector<string>{"9"});     //2020年9月1号，9点0分的数据示例
+	Data_Info.emplace("Minute", vector<string>{ "0"});
+	Data_Info.emplace("Week", vector<string>{ "2"});
+	Data_Info.emplace("Holiday", vector<string>{"0"});
+	Data_Info.emplace("Pre_Volume", vector<string>{ "15"});           //前一时刻的流量数据
+	Data_Info.emplace("Pre_Week_Volume", vector<string>{ "20"});
+	Data_Info.emplace("Pre_Capacity", vector<string>{ "1000"});
+	Data_Info.emplace("Pre_InVolume", vector<string>{ "100"});
+	Data_Info.emplace("Upstream_Volume", vector<string>{ "100"});
+	Data_Info.emplace("Weather", vector<string>{ "1"});              //1表示天气晴朗
+	Data_Info.emplace("Long_Ratio", vector<string>{ "1.0"});
+
 	CART_MODEL cart_test;
 	cart_test.post_Pruning();
+	cart_test.predict(Data_Info, cart_test.head);
 
 	return 0;
 }

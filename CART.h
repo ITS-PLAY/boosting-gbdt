@@ -54,6 +54,8 @@ public:
     Tree_Node* build_Leaf_Node(Tree_Node* head, unordered_map<string, vector<string>> mData_Info);
     void sub_Tree_Square(Tree_Node* head, double& square_Sum, int& leaf_Num);
     void post_Pruning();
+    void copy_Node(Tree_Node* sub_Tree_Node,Tree_Node* head_Node);
+    Tree_Node* copy_Tree(Tree_Node* head, Tree_Node* sub_Tree_Parent, unordered_map<int, vector<Tree_Node*>>& tree_Level_Temp);
     void predict(unordered_map<string, vector<string>> mData_Info, Tree_Node* optimal);
 
 private:
